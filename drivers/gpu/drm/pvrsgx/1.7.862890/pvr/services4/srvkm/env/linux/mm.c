@@ -338,19 +338,19 @@ LinuxMMCleanup(IMG_VOID)
 
 
 IMG_VOID *
-_KMallocWrapper(IMG_UINT32 ui32ByteSize, gfp_t uFlags, IMG_CHAR *pszFileName, IMG_UINT32 ui32Line)
+_KMallocWrapper(IMG_SIZE_T uiByteSize, gfp_t uFlags, IMG_CHAR *pszFileName, IMG_UINT32 ui32Line, IMG_BOOL bSwapAlloc)
 {
     IMG_VOID *pvRet;
-    pvRet = kmalloc(ui32ByteSize, uFlags);
+    pvRet = kmalloc(uiByteSize, uFlags);
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
     if(pvRet)
     {
-        DebugMemAllocRecordAdd(DEBUG_MEM_ALLOC_TYPE_KMALLOC,
+        DebugMemAllocRecordAdd(bSwapAlloc ? DEBUG_MEM_ALLOC_TYPE_SWAP : DEBUG_MEM_ALLOC_TYPE_KMALLOC,
                                pvRet,
                                pvRet,
                                0,
                                NULL,
-                               ui32ByteSize,
+                               uiByteSize,
                                pszFileName,
                                ui32Line
                                );
@@ -364,10 +364,10 @@ _KMallocWrapper(IMG_UINT32 ui32ByteSize, gfp_t uFlags, IMG_CHAR *pszFileName, IM
 
 
 IMG_VOID
-_KFreeWrapper(IMG_VOID *pvCpuVAddr, IMG_CHAR *pszFileName, IMG_UINT32 ui32Line)
+_KFreeWrapper(IMG_VOID *pvCpuVAddr, IMG_CHAR *pszFileName, IMG_UINT32 ui32Line, IMG_BOOL bSwapAlloc)
 {
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-    DebugMemAllocRecordRemove(DEBUG_MEM_ALLOC_TYPE_KMALLOC, pvCpuVAddr, pszFileName,  ui32Line);
+    DebugMemAllocRecordRemove(bSwapAlloc ? DEBUG_MEM_ALLOC_TYPE_SWAP : DEBUG_MEM_ALLOC_TYPE_KMALLOC, pvCpuVAddr, pszFileName,  ui32Line);
 #else
     PVR_UNREFERENCED_PARAMETER(pszFileName);
     PVR_UNREFERENCED_PARAMETER(ui32Line);
@@ -524,7 +524,7 @@ DebugMemAllocRecordTypeToString(DEBUG_MEM_ALLOC_TYPE eAllocType)
 
 
 IMG_VOID *
-_VMallocWrapper(IMG_UINT32 ui32Bytes,
+_VMallocWrapper(IMG_SIZE_T uiBytes,
                 IMG_UINT32 ui32AllocFlags,
                 IMG_CHAR *pszFileName,
                 IMG_UINT32 ui32Line)
@@ -546,14 +546,18 @@ _VMallocWrapper(IMG_UINT32 ui32Bytes,
         default:
             PVR_DPF((PVR_DBG_ERROR,
                      "VMAllocWrapper: unknown mapping flags=0x%08x",
-                     ui32AllocFlags));
+                     uiAllocFlags));
             dump_stack();
             return NULL;
     }
 
-	
+	/* Allocate virtually contiguous pages */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,8,0))
     pvRet = __vmalloc(ui32Bytes, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, PGProtFlags);
-    
+#else
+    pvRet = __vmalloc(uiBytes, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);
+#endif
+
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
     if(pvRet)
     {
@@ -590,7 +594,7 @@ _VFreeWrapper(IMG_VOID *pvCpuVAddr, IMG_CHAR *pszFileName, IMG_UINT32 ui32Line)
 
 
 LinuxMemArea *
-NewVMallocLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
+NewVMallocLinuxMemArea(IMG_SIZE_T uBytes, IMG_UINT32 ui32AreaFlags)
 {
     LinuxMemArea *psLinuxMemArea;
     IMG_VOID *pvCpuVAddr;
@@ -601,7 +605,7 @@ NewVMallocLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
         goto failed;
     }
 
-    pvCpuVAddr = VMallocWrapper(ui32Bytes, ui32AreaFlags);
+    pvCpuVAddr = VMallocWrapper(uBytes, ui32AreaFlags);
     if(!pvCpuVAddr)
     {
         goto failed;
@@ -609,12 +613,12 @@ NewVMallocLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
     
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,15))
     
-    ReservePages(pvCpuVAddr, ui32Bytes);
+    ReservePages(pvCpuVAddr, uBytes);
 #endif
 
     psLinuxMemArea->eAreaType = LINUX_MEM_AREA_VMALLOC;
     psLinuxMemArea->uData.sVmalloc.pvVmallocAddress = pvCpuVAddr;
-    psLinuxMemArea->ui32ByteSize = ui32Bytes;
+    psLinuxMemArea->uiByteSize = uBytes;
     psLinuxMemArea->ui32AreaFlags = ui32AreaFlags;
     INIT_LIST_HEAD(&psLinuxMemArea->sMMapOffsetStructList);
 
@@ -624,7 +628,7 @@ NewVMallocLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
 
     
     if(ui32AreaFlags & (PVRSRV_HAP_WRITECOMBINE | PVRSRV_HAP_UNCACHED))
-        OSInvalidateCPUCacheRangeKM(psLinuxMemArea, pvCpuVAddr, ui32Bytes);
+        OSInvalidateCPUCacheRangeKM(psLinuxMemArea, pvCpuVAddr, uBytes);
 
     return psLinuxMemArea;
 
@@ -758,7 +762,7 @@ _IOUnmapWrapper(IMG_VOID *pvIORemapCookie, IMG_CHAR *pszFileName, IMG_UINT32 ui3
 
 LinuxMemArea *
 NewIORemapLinuxMemArea(IMG_CPU_PHYADDR BasePAddr,
-                       IMG_UINT32 ui32Bytes,
+                       IMG_SIZE_T uBytes,
                        IMG_UINT32 ui32AreaFlags)
 {
     LinuxMemArea *psLinuxMemArea;
@@ -770,7 +774,7 @@ NewIORemapLinuxMemArea(IMG_CPU_PHYADDR BasePAddr,
         return NULL;
     }
 
-    pvIORemapCookie = IORemapWrapper(BasePAddr, ui32Bytes, ui32AreaFlags);
+    pvIORemapCookie = IORemapWrapper(BasePAddr, uBytes, ui32AreaFlags);
     if(!pvIORemapCookie)
     {
         LinuxMemAreaStructFree(psLinuxMemArea);
@@ -780,7 +784,7 @@ NewIORemapLinuxMemArea(IMG_CPU_PHYADDR BasePAddr,
     psLinuxMemArea->eAreaType = LINUX_MEM_AREA_IOREMAP;
     psLinuxMemArea->uData.sIORemap.pvIORemapCookie = pvIORemapCookie;
     psLinuxMemArea->uData.sIORemap.CPUPhysAddr = BasePAddr;
-    psLinuxMemArea->ui32ByteSize = ui32Bytes;
+    psLinuxMemArea->uiByteSize = uBytes;
     psLinuxMemArea->ui32AreaFlags = ui32AreaFlags;
     INIT_LIST_HEAD(&psLinuxMemArea->sMMapOffsetStructList);
 
@@ -847,7 +851,7 @@ TreatExternalPagesAsContiguous(IMG_SYS_PHYADDR *psSysPhysAddr, IMG_UINT32 ui32By
 }
 #endif
 
-LinuxMemArea *NewExternalKVLinuxMemArea(IMG_SYS_PHYADDR *pBasePAddr, IMG_VOID *pvCPUVAddr, IMG_UINT32 ui32Bytes, IMG_BOOL bPhysContig, IMG_UINT32 ui32AreaFlags)
+LinuxMemArea *NewExternalKVLinuxMemArea(IMG_SYS_PHYADDR *pBasePAddr, IMG_VOID *pvCPUVAddr, IMG_SIZE_T uBytes, IMG_BOOL bPhysContig, IMG_UINT32 ui32AreaFlags)
 {
     LinuxMemArea *psLinuxMemArea;
 
@@ -861,7 +865,7 @@ LinuxMemArea *NewExternalKVLinuxMemArea(IMG_SYS_PHYADDR *pBasePAddr, IMG_VOID *p
     psLinuxMemArea->uData.sExternalKV.pvExternalKV = pvCPUVAddr;
     psLinuxMemArea->uData.sExternalKV.bPhysContig =
 #if !defined(PVR_MAKE_ALL_PFNS_SPECIAL)
-	(bPhysContig || TreatExternalPagesAsContiguous(pBasePAddr, ui32Bytes, bPhysContig))
+	(bPhysContig || TreatExternalPagesAsContiguous(pBasePAddr, uBytes, bPhysContig))
                                                     ? IMG_TRUE : IMG_FALSE;
 #else
 	bPhysContig;
@@ -874,7 +878,7 @@ LinuxMemArea *NewExternalKVLinuxMemArea(IMG_SYS_PHYADDR *pBasePAddr, IMG_VOID *p
     {
 	psLinuxMemArea->uData.sExternalKV.uPhysAddr.pSysPhysAddr = pBasePAddr;
     }
-    psLinuxMemArea->ui32ByteSize = ui32Bytes;
+    psLinuxMemArea->uiByteSize = uBytes;
     psLinuxMemArea->ui32AreaFlags = ui32AreaFlags;
     INIT_LIST_HEAD(&psLinuxMemArea->sMMapOffsetStructList);
 
@@ -901,7 +905,7 @@ FreeExternalKVLinuxMemArea(LinuxMemArea *psLinuxMemArea)
 
 LinuxMemArea *
 NewIOLinuxMemArea(IMG_CPU_PHYADDR BasePAddr,
-                  IMG_UINT32 ui32Bytes,
+                  IMG_SIZE_T uBytes,
                   IMG_UINT32 ui32AreaFlags)
 {
     LinuxMemArea *psLinuxMemArea = LinuxMemAreaStructAlloc();
@@ -913,7 +917,7 @@ NewIOLinuxMemArea(IMG_CPU_PHYADDR BasePAddr,
     
     psLinuxMemArea->eAreaType = LINUX_MEM_AREA_IO;
     psLinuxMemArea->uData.sIO.CPUPhysAddr.uiAddr = BasePAddr.uiAddr;
-    psLinuxMemArea->ui32ByteSize = ui32Bytes;
+    psLinuxMemArea->uiByteSize = uBytes;
     psLinuxMemArea->ui32AreaFlags = ui32AreaFlags;
     INIT_LIST_HEAD(&psLinuxMemArea->sMMapOffsetStructList);
 
@@ -923,7 +927,7 @@ NewIOLinuxMemArea(IMG_CPU_PHYADDR BasePAddr,
                            0,
                            BasePAddr.uiAddr,
                            NULL,
-                           ui32Bytes,
+                           uBytes,
                            "unknown",
                            0
                            );
@@ -958,7 +962,7 @@ FreeIOLinuxMemArea(LinuxMemArea *psLinuxMemArea)
 
 
 LinuxMemArea *
-NewAllocPagesLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
+NewAllocPagesLinuxMemArea(IMG_SIZE_T uBytes, IMG_UINT32 ui32AreaFlags)
 {
     LinuxMemArea *psLinuxMemArea;
     IMG_UINT32 ui32PageCount;
@@ -973,7 +977,7 @@ NewAllocPagesLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
         goto failed_area_alloc;
     }
     
-    ui32PageCount = RANGE_TO_PAGES(ui32Bytes);
+    ui32PageCount = RANGE_TO_PAGES(uBytes);
     eError = OSAllocMem(0, sizeof(*pvPageList) * ui32PageCount, (IMG_VOID **)&pvPageList, &hBlockPageList,
 							"Array of pages");
     if(eError != PVRSRV_OK)
@@ -1005,7 +1009,7 @@ NewAllocPagesLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
                            0,
                            0,
                            NULL,
-                           PAGE_ALIGN(ui32Bytes),
+                           PAGE_ALIGN(uBytes),
                            "unknown",
                            0
                            );
@@ -1014,7 +1018,7 @@ NewAllocPagesLinuxMemArea(IMG_UINT32 ui32Bytes, IMG_UINT32 ui32AreaFlags)
     psLinuxMemArea->eAreaType = LINUX_MEM_AREA_ALLOC_PAGES;
     psLinuxMemArea->uData.sPageList.pvPageList = pvPageList;
     psLinuxMemArea->uData.sPageList.hBlockPageList = hBlockPageList;
-    psLinuxMemArea->ui32ByteSize = ui32Bytes;
+    psLinuxMemArea->uiByteSize = uBytes;
     psLinuxMemArea->ui32AreaFlags = ui32AreaFlags;
     INIT_LIST_HEAD(&psLinuxMemArea->sMMapOffsetStructList);
 
@@ -1061,7 +1065,7 @@ FreeAllocPagesLinuxMemArea(LinuxMemArea *psLinuxMemArea)
     DebugLinuxMemAreaRecordRemove(psLinuxMemArea);
 #endif
     
-    ui32PageCount = RANGE_TO_PAGES(psLinuxMemArea->ui32ByteSize);
+    ui32PageCount = RANGE_TO_PAGES(psLinuxMemArea->uiByteSize);
     pvPageList = psLinuxMemArea->uData.sPageList.pvPageList;
     hBlockPageList = psLinuxMemArea->uData.sPageList.hBlockPageList;
     
@@ -1109,7 +1113,7 @@ LinuxMemAreaOffsetToPage(LinuxMemArea *psLinuxMemArea,
         case LINUX_MEM_AREA_SUB_ALLOC:
              
             return LinuxMemAreaOffsetToPage(psLinuxMemArea->uData.sSubAlloc.psParentLinuxMemArea,
-                                            psLinuxMemArea->uData.sSubAlloc.ui32ByteOffset
+                                            psLinuxMemArea->uData.sSubAlloc.uiByteOffset
                                              + ui32ByteOffset);
         default:
             PVR_DPF((PVR_DBG_ERROR,
@@ -1204,12 +1208,12 @@ KMemCacheNameWrapper(LinuxKMemCache *psCache)
 
 LinuxMemArea *
 NewSubLinuxMemArea(LinuxMemArea *psParentLinuxMemArea,
-                   IMG_UINT32 ui32ByteOffset,
-                   IMG_UINT32 ui32Bytes)
+                   IMG_UINTPTR_T uiByteOffset,
+                   IMG_SIZE_T uBytes)
 {
     LinuxMemArea *psLinuxMemArea;
     
-    PVR_ASSERT((ui32ByteOffset+ui32Bytes) <= psParentLinuxMemArea->ui32ByteSize);
+    PVR_ASSERT((uiByteOffset+uBytes) <= psParentLinuxMemArea->uiByteSize);
     
     psLinuxMemArea = LinuxMemAreaStructAlloc();
     if(!psLinuxMemArea)
@@ -1219,8 +1223,8 @@ NewSubLinuxMemArea(LinuxMemArea *psParentLinuxMemArea,
     
     psLinuxMemArea->eAreaType = LINUX_MEM_AREA_SUB_ALLOC;
     psLinuxMemArea->uData.sSubAlloc.psParentLinuxMemArea = psParentLinuxMemArea;
-    psLinuxMemArea->uData.sSubAlloc.ui32ByteOffset = ui32ByteOffset;
-    psLinuxMemArea->ui32ByteSize = ui32Bytes;
+    psLinuxMemArea->uData.sSubAlloc.uiByteOffset = uiByteOffset;
+    psLinuxMemArea->uiByteSize = uBytes;
     psLinuxMemArea->ui32AreaFlags = psParentLinuxMemArea->ui32AreaFlags;
     psLinuxMemArea->bNeedsCacheInvalidate = psParentLinuxMemArea->bNeedsCacheInvalidate;
     INIT_LIST_HEAD(&psLinuxMemArea->sMMapOffsetStructList);
@@ -1447,7 +1451,7 @@ LinuxMemAreaToCpuVAddr(LinuxMemArea *psLinuxMemArea)
             {
                 return NULL;
             }
-            return pAddr + psLinuxMemArea->uData.sSubAlloc.ui32ByteOffset;
+            return pAddr + psLinuxMemArea->uData.sSubAlloc.uiByteOffset;
         }
         default:
             return NULL;
@@ -1456,7 +1460,7 @@ LinuxMemAreaToCpuVAddr(LinuxMemArea *psLinuxMemArea)
 
 
 IMG_CPU_PHYADDR
-LinuxMemAreaToCpuPAddr(LinuxMemArea *psLinuxMemArea, IMG_UINT32 ui32ByteOffset)
+LinuxMemAreaToCpuPAddr(LinuxMemArea *psLinuxMemArea, IMG_UINTPTR_T uiByteOffset)
 {
     IMG_CPU_PHYADDR CpuPAddr;
     
@@ -1467,7 +1471,7 @@ LinuxMemAreaToCpuPAddr(LinuxMemArea *psLinuxMemArea, IMG_UINT32 ui32ByteOffset)
         case LINUX_MEM_AREA_IOREMAP:
         {
             CpuPAddr = psLinuxMemArea->uData.sIORemap.CPUPhysAddr;
-            CpuPAddr.uiAddr += ui32ByteOffset;
+            CpuPAddr.uiAddr += uiByteOffset;
             break;
         }
 	case LINUX_MEM_AREA_EXTERNAL_KV:
@@ -1475,22 +1479,22 @@ LinuxMemAreaToCpuPAddr(LinuxMemArea *psLinuxMemArea, IMG_UINT32 ui32ByteOffset)
 	    if (psLinuxMemArea->uData.sExternalKV.bPhysContig)
 	    {
 		CpuPAddr = SysSysPAddrToCpuPAddr(psLinuxMemArea->uData.sExternalKV.uPhysAddr.SysPhysAddr);
-		CpuPAddr.uiAddr += ui32ByteOffset;
+		CpuPAddr.uiAddr += uiByteOffset;
 	    }
 	    else
 	    {
-		IMG_UINT32 ui32PageIndex = PHYS_TO_PFN(ui32ByteOffset);
-		IMG_SYS_PHYADDR SysPAddr = psLinuxMemArea->uData.sExternalKV.uPhysAddr.pSysPhysAddr[ui32PageIndex];
+		IMG_UINTPTR_T uiPageIndex = PHYS_TO_PFN(uiByteOffset);
+		IMG_SYS_PHYADDR SysPAddr = psLinuxMemArea->uData.sExternalKV.uPhysAddr.pSysPhysAddr[uiPageIndex];
 
 		CpuPAddr = SysSysPAddrToCpuPAddr(SysPAddr);
-                CpuPAddr.uiAddr += ADDR_TO_PAGE_OFFSET(ui32ByteOffset);
+                CpuPAddr.uiAddr += ADDR_TO_PAGE_OFFSET(uiByteOffset);
 	    }
             break;
 	}
         case LINUX_MEM_AREA_IO:
         {
             CpuPAddr = psLinuxMemArea->uData.sIO.CPUPhysAddr;
-            CpuPAddr.uiAddr += ui32ByteOffset;
+            CpuPAddr.uiAddr += uiByteOffset;
             break;
         }
         case LINUX_MEM_AREA_VMALLOC:
@@ -1498,25 +1502,25 @@ LinuxMemAreaToCpuPAddr(LinuxMemArea *psLinuxMemArea, IMG_UINT32 ui32ByteOffset)
             IMG_CHAR *pCpuVAddr;
             pCpuVAddr =
                 (IMG_CHAR *)psLinuxMemArea->uData.sVmalloc.pvVmallocAddress;
-            pCpuVAddr += ui32ByteOffset;
+            pCpuVAddr += uiByteOffset;
             CpuPAddr.uiAddr = VMallocToPhys(pCpuVAddr);
             break;
         }
         case LINUX_MEM_AREA_ALLOC_PAGES:
         {
             struct page *page;
-            IMG_UINT32 ui32PageIndex = PHYS_TO_PFN(ui32ByteOffset);
-            page = psLinuxMemArea->uData.sPageList.pvPageList[ui32PageIndex];
+            IMG_UINTPTR_T uiPageIndex = PHYS_TO_PFN(uiByteOffset);
+            page = psLinuxMemArea->uData.sPageList.pvPageList[uiPageIndex];
             CpuPAddr.uiAddr = page_to_phys(page);
-            CpuPAddr.uiAddr += ADDR_TO_PAGE_OFFSET(ui32ByteOffset);
+            CpuPAddr.uiAddr += ADDR_TO_PAGE_OFFSET(uiByteOffset);
             break;
         }
         case LINUX_MEM_AREA_SUB_ALLOC:
         {
             CpuPAddr =
                 OSMemHandleToCpuPAddr(psLinuxMemArea->uData.sSubAlloc.psParentLinuxMemArea,
-                                      psLinuxMemArea->uData.sSubAlloc.ui32ByteOffset
-                                        + ui32ByteOffset);
+                                      psLinuxMemArea->uData.sSubAlloc.uiByteOffset
+                                        + uiByteOffset);
             break;
         }
         default:

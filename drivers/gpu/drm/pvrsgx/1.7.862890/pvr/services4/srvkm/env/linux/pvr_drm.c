@@ -41,7 +41,11 @@
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
 #include <asm/ioctl.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#endif
 #include <drm/drm.h>
 
 #include "img_defs.h"
@@ -125,11 +129,13 @@ PVRSRVDrmLoad(struct drm_device *dev, unsigned long flags)
 	PVR_TRACE(("PVRSRVDrmLoad"));
 
 	gpsPVRDRMDev = dev;
-#if !defined(PVR_DRI_DRM_NOT_PCI)
+#if !defined(PVR_DRI_DRM_NOT_PCI) && !defined(SUPPORT_DRI_DRM_PLUGIN)
 #if defined(PVR_DRI_DRM_PLATFORM_DEV)
 	gpsPVRLDMDev = dev->platformdev;
 #else
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0))
 	gpsPVRLDMDev = dev->pdev;
+#endif
 #endif
 #endif
 

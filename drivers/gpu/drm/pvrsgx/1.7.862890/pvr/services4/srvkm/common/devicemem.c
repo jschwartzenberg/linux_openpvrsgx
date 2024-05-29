@@ -768,6 +768,16 @@ static PVRSRV_ERROR FreeMemCallBackCommon(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 			
 			case PVRSRV_MEMTYPE_WRAPPED:
 				freeWrapped(psMemInfo);
+                                if (psMemInfo->psKernelSyncInfo)
+                                {
+                                        psMemInfo->psKernelSyncInfo->ui32RefCount--;
+
+                                        if (psMemInfo->psKernelSyncInfo->ui32RefCount == 0)
+                                        {
+                                                eError = PVRSRVFreeSyncInfoKM(psMemInfo->psKernelSyncInfo);
+                                        }
+                                }
+                                break;
 			case PVRSRV_MEMTYPE_DEVICE:
 				if (psMemInfo->psKernelSyncInfo)
 				{
@@ -778,6 +788,7 @@ static PVRSRV_ERROR FreeMemCallBackCommon(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 						eError = PVRSRVFreeSyncInfoKM(psMemInfo->psKernelSyncInfo);
 					}
 				}
+                                break;
 			case PVRSRV_MEMTYPE_DEVICECLASS:
 				break;
 			default:

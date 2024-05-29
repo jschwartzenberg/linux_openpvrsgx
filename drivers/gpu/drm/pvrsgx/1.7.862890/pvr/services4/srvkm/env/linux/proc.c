@@ -431,6 +431,7 @@ IMG_VOID RemovePerProcessProcEntrySeq(struct pvr_proc_dir_entry* ppde)
     }
 }
 
+/*
 static IMG_INT pvr_read_proc(IMG_CHAR *page, IMG_CHAR **start, off_t off,
                          IMG_INT count, IMG_INT *eof, IMG_VOID *data)
 {
@@ -456,7 +457,6 @@ static IMG_INT pvr_read_proc(IMG_CHAR *page, IMG_CHAR **start, off_t off,
     return len;
 }
 
-/*
 static IMG_INT CreateProcEntryInDir(struct proc_dir_entry *pdir, const IMG_CHAR * name, read_proc_t rhandler, pvr_proc_write_t whandler, IMG_VOID *data)
 {
     struct pvr_proc_dir_entry * ppde;

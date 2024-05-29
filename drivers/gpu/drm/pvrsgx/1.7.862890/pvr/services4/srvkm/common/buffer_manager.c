@@ -51,6 +51,8 @@ DevMemoryAlloc (BM_CONTEXT *pBMContext,
 static IMG_VOID
 DevMemoryFree (BM_MAPPING *pMapping);
 
+void XProcWorkaroundShareCheck(void);
+
 static IMG_BOOL
 AllocMemory (BM_CONTEXT				*pBMContext,
 				BM_HEAP				*psBMHeap,

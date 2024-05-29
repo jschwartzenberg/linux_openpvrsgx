@@ -19,7 +19,11 @@
 #ifndef _PSB_SCHEDULE_H_
 #define _PSB_SCHEDULE_H_
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#endif
 
 struct psb_context;
 
