@@ -30,7 +30,11 @@
 #define _PSB_POWERMGMT_H_
 
 #include <linux/pci.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#endif
 
 #define OSPM_GRAPHICS_ISLAND	0x1
 #define OSPM_VIDEO_DEC_ISLAND	0x2

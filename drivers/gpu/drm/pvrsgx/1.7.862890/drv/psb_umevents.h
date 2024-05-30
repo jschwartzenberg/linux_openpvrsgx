@@ -27,8 +27,12 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
 #include <drm/drm_core.h>
+#else
+#include <drm/drm_file.h>
+#endif
 #include <drm/drm_pciids.h>
 #include <linux/spinlock.h>
 /**

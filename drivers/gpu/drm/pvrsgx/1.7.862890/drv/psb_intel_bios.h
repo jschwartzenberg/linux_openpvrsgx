@@ -22,7 +22,11 @@
 #ifndef _I830_BIOS_H_
 #define _I830_BIOS_H_
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#endif
 
 struct vbt_header {
 	u8 signature[20];		/**< Always starts with 'VBT$' */

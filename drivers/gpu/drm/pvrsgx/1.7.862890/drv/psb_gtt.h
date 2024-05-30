@@ -20,7 +20,11 @@
 #ifndef _PSB_GTT_H_
 #define _PSB_GTT_H_
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_mm.h>
+#endif
 
 #include "img_types.h"
 
