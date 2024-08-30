@@ -28,9 +28,9 @@
 
 #include "psb_ttm_placement_user.h"
 #include "psb_ttm_fence_user.h"
-#include "ttm/ttm_object.h"
+#include "ttm_object.h"
 #include "psb_ttm_fence_api.h"
-#include "ttm/ttm_bo_api.h"
+#include "ttm/ttm_bo.h"
 
 struct ttm_lock;
 
@@ -38,12 +38,14 @@ struct ttm_lock;
  * User ioctls.
  */
 
+/*
 extern int ttm_pl_create_ioctl(struct ttm_object_file *tfile,
 			       struct ttm_bo_device *bdev,
 			       struct ttm_lock *lock, void *data);
 extern int ttm_pl_ub_create_ioctl(struct ttm_object_file *tfile,
 				  struct ttm_bo_device *bdev,
 				  struct ttm_lock *lock, void *data);
+*/
 extern int ttm_pl_reference_ioctl(struct ttm_object_file *tfile, void *data);
 extern int ttm_pl_unref_ioctl(struct ttm_object_file *tfile, void *data);
 extern int ttm_pl_synccpu_ioctl(struct ttm_object_file *tfile, void *data);
@@ -70,6 +72,7 @@ extern int
 ttm_pl_verify_access(struct ttm_buffer_object *bo,
 		     struct ttm_object_file *tfile);
 
+/*
 extern int ttm_buffer_object_create(struct ttm_bo_device *bdev,
 			unsigned long size,
 			enum ttm_bo_type type,
@@ -79,7 +82,7 @@ extern int ttm_buffer_object_create(struct ttm_bo_device *bdev,
 			bool interruptible,
 			struct file *persistant_swap_storage,
 			struct ttm_buffer_object **p_bo);
-
+*/
 extern int psb_ttm_bo_check_placement(struct ttm_buffer_object *bo,
 				struct ttm_placement *placement);
 #endif

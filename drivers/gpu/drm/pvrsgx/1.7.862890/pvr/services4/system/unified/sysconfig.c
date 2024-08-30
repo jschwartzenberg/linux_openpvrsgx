@@ -88,7 +88,7 @@ static PVRSRV_ERROR PCIInitDev(SYS_DATA *psSysData)
 		return PVRSRV_ERROR_NOT_SUPPORTED;
 	}
 
-	mch_dev = pci_get_bus_and_slot(0, PCI_DEVFN(0,0));
+	mch_dev = pci_get_domain_bus_and_slot(0, 0, PCI_DEVFN(0,0));
 	if (!mch_dev)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PCIInitDev: Failed to get (0,0,0) device"));

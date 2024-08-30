@@ -53,6 +53,13 @@ PVRSRV_ERROR MRSTLFBPostPowerState(IMG_HANDLE 		  hDevHandle,
 				   PVRSRV_DEV_POWER_STATE eNewPowerState,
 				   PVRSRV_DEV_POWER_STATE eCurrentPowerState);
 
+#ifdef DRM_PVR_USE_INTEL_FB
+int MRSTLFBHandleChangeFB(struct drm_device* dev, struct psb_framebuffer *psbfb);
+uint32_t MRSTLFBGetSize(MRSTLFB_BUFFER *pBuffer);
+void* MRSTLFBGetCPUVAddr(MRSTLFB_BUFFER *pBuffer);
+uint32_t MRSTLFBGetDevVAddr(MRSTLFB_BUFFER *pBuffer);
+#endif
+
 #ifdef MODESET_640x480
 extern int psb_to_640 (struct fb_info* info);
 #endif
@@ -168,7 +175,7 @@ static void FlushInternalVSyncQueue(MRSTLFB_SWAPCHAIN *psSwapChain, MRST_BOOL bF
 		{
 			DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": FlushInternalVSyncQueue: Calling command complete for swap buffer (index %lu)\n", psSwapChain->ulRemoveIndex));
 
-			psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete((IMG_HANDLE)psFlipItem->hCmdComplete, MRST_TRUE);
+			psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete((IMG_HANDLE)psFlipItem->hCmdComplete, IMG_TRUE);
 		}
 
 		
@@ -543,7 +550,7 @@ static PVRSRV_ERROR GetDCBufferAddr(IMG_HANDLE        hDevice,
 
 	if (pbIsContiguous)
 	{
-		*pbIsContiguous = psSystemBuffer->bIsContiguous;
+		*pbIsContiguous = (IMG_BOOL)psSystemBuffer->bIsContiguous;
 	}
 
 	return (PVRSRV_OK);
@@ -941,7 +948,7 @@ static MRST_BOOL MRSTLFBVSyncIHandler(MRSTLFB_DEVINFO *psDevInfo)
 				bScheduleMISR = MRST_TRUE;
 
 				
-				psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete((IMG_HANDLE)psFlipItem->hCmdComplete, bScheduleMISR);
+				psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete((IMG_HANDLE)psFlipItem->hCmdComplete, (IMG_BOOL)bScheduleMISR);
 
 				
 				psFlipItem->bCmdCompleted = MRST_TRUE;
@@ -1194,9 +1201,9 @@ int MRSTLFBHandleChangeFB(struct drm_device* dev, struct psb_framebuffer *psbfb)
 		MRSTLFBFreeKernelMem( psDevInfo->sSystemBuffer.uSysAddr.psNonCont );
 		psDevInfo->sSystemBuffer.uSysAddr.psNonCont = NULL;
 	}
-	psDevInfo->sDisplayFormat.pixelformat = (psbfb->base.depth == 16) ? PVRSRV_PIXEL_FORMAT_RGB565 : PVRSRV_PIXEL_FORMAT_ARGB8888;
+	psDevInfo->sDisplayFormat.pixelformat = (psbfb->base.format->depth == 16) ? PVRSRV_PIXEL_FORMAT_RGB565 : PVRSRV_PIXEL_FORMAT_ARGB8888;
 
-	psDevInfo->sDisplayDim.ui32ByteStride = psbfb->base.pitch;
+	psDevInfo->sDisplayDim.ui32ByteStride = psbfb->base.pitches[0];
 	psDevInfo->sDisplayDim.ui32Width = psbfb->base.width;
 	psDevInfo->sDisplayDim.ui32Height = psbfb->base.height;
 

@@ -23,9 +23,14 @@
 #define _PSB_FB_H_
 
 #include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#endif
 
 #include <drm/drm_fb_helper.h>
+#include <drm/drm_framebuffer.h>
 
 #include "psb_drv.h"
 

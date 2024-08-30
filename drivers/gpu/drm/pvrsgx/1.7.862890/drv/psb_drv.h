@@ -38,11 +38,11 @@
 #include "psb_dpst.h"
 #include "psb_gtt.h"
 #include "psb_powermgmt.h"
-#include "ttm/ttm_object.h"
+#include "ttm_object.h"
 #include "psb_ttm_fence_driver.h"
 #include "psb_ttm_userobj_api.h"
-#include "ttm/ttm_bo_driver.h"
-#include "ttm/ttm_lock.h"
+//#include "ttm/ttm_bo_driver.h"
+//#include "ttm/ttm_lock.h"
 
 /*IMG headers*/
 #include "private_data.h"
@@ -355,15 +355,16 @@ struct drm_psb_private {
 	 *TTM Glue.
 	 */
 
-	struct drm_global_reference mem_global_ref;
-	struct ttm_bo_global_ref bo_global_ref;
+//	struct drm_global_reference mem_global_ref;
+//	struct ttm_bo_global_ref bo_global_ref;
 	int has_global;
 
 	struct drm_device *dev;
-	struct ttm_object_device *tdev;
-	struct ttm_fence_device fdev;
-	struct ttm_bo_device bdev;
-	struct ttm_lock ttm_lock;
+	struct ttm_device bdev;
+//	struct ttm_object_device *tdev;
+//	struct ttm_fence_device fdev;
+//	struct ttm_bo_device bdev;
+//	struct ttm_lock ttm_lock;
 	struct vm_operations_struct *ttm_vm_ops;
 	int has_fence_device;
 	int has_bo_device;
@@ -939,7 +940,7 @@ extern int psb_validate_kernel_buffer(struct psb_context *context,
  *psb_irq.c
  */
 
-extern irqreturn_t psb_irq_handler(DRM_IRQ_ARGS);
+//extern irqreturn_t psb_irq_handler(DRM_IRQ_ARGS);
 extern int psb_irq_enable_dpst(struct drm_device *dev);
 extern int psb_irq_disable_dpst(struct drm_device *dev);
 extern void psb_irq_preinstall(struct drm_device *dev);
@@ -1104,7 +1105,7 @@ static inline u32 CDV_MSG_READ32(uint port, uint offset)
 {
 	int mcr = (0x10<<24) | (port << 16) | (offset << 8);
 	uint32_t ret_val = 0;
-	struct pci_dev *pci_root = pci_get_bus_and_slot (0, 0);
+	struct pci_dev *pci_root = pci_get_domain_bus_and_slot (0, 0, 0);
 	pci_write_config_dword (pci_root, 0xD0, mcr);
 	pci_read_config_dword (pci_root, 0xD4, &ret_val);
 	pci_dev_put(pci_root);
@@ -1113,7 +1114,7 @@ static inline u32 CDV_MSG_READ32(uint port, uint offset)
 static inline void CDV_MSG_WRITE32(uint port, uint offset, u32 value)
 {
 	int mcr = (0x11<<24) | (port << 16) | (offset << 8) | 0xF0;
-	struct pci_dev *pci_root = pci_get_bus_and_slot (0, 0);
+	struct pci_dev *pci_root = pci_get_domain_bus_and_slot (0, 0, 0);
 	pci_write_config_dword (pci_root, 0xD4, value);
 	pci_write_config_dword (pci_root, 0xD0, mcr);
 	pci_dev_put(pci_root);
@@ -1215,7 +1216,9 @@ static inline void REGISTER_WRITE8(struct drm_device *dev,
 #define IS_PENWELL(dev) 0 /* FIXME */
 
 
-#define IS_CDV(dev) (((dev)->pci_device & 0xfff0) == 0x0BE0)
+//#define IS_CDV(dev) (((dev)->pci_device & 0xfff0) == 0x0BE0)
+// all IDs listed in psb_drv.c would match, so hardcoding this to 1 for now
+#define IS_CDV(dev) 1
 #define IS_MID(dev) (IS_CDV(dev))
 
 #define IS_MSVDX(dev) (IS_CDV(dev))

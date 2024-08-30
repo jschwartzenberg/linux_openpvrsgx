@@ -29,7 +29,7 @@
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include "psb_ttm_fence_api.h"
-#include "ttm/ttm_memory.h"
+//#include "ttm/ttm_memory.h"
 
 /** @file ttm_fence_driver.h
  *

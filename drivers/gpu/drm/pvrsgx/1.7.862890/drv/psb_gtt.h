@@ -50,7 +50,7 @@ struct psb_gtt {
 	uint32_t *gtt_map;
 	struct rw_semaphore sem;
 };
-
+/*
 struct psb_gtt_mm {
 	struct drm_mm base;
 	struct drm_open_hash hash;
@@ -68,7 +68,7 @@ struct psb_gtt_mem_mapping {
 	struct drm_mm_node *node;
 	struct drm_hash_item item;
 };
-
+*/
 #if 0
 /*Ioctl args*/
 struct psb_gtt_mapping_arg {

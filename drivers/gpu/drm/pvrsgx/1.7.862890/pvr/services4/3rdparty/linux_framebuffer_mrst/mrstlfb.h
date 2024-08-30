@@ -27,7 +27,11 @@
 #ifndef __MRSTLFB_H__
 #define __MRSTLFB_H__
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include "drmP.h"
+#else
+#include <drm/drm_file.h>
+#endif
 #include "psb_intel_reg.h"
 
 #define MRST_USING_INTERRUPTS
@@ -137,7 +141,7 @@ typedef struct MRSTLFB_SWAPCHAIN_TAG
 	PVRSRV_DC_DISP2SRV_KMJTABLE	*psPVRJTable;
 
 	
-	struct drm_driver         *psDrmDriver;
+	const struct drm_driver         *psDrmDriver;
 
 	
 	struct drm_device         *psDrmDev;

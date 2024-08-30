@@ -24,7 +24,12 @@
  *
  ******************************************************************************/
 
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#endif
 #include <drm/drm.h>
 
 #include "pvr_drm_shared.h"
@@ -119,7 +124,7 @@ SYSPVRMMap(struct file* pFile, struct vm_area_struct* ps_vma)
 	ret = PVRMMap(pFile, ps_vma);
 	if (ret == -ENOENT)
 	{
-		ret = drm_mmap(pFile, ps_vma);
+		return -EINVAL;
 	}
 
 	return ret;
