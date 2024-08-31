@@ -33,6 +33,7 @@
 #include <linux/notifier.h>
 #include <linux/spinlock.h>
 #include <asm/intel_scu_ipc.h>
+#include <asm/set_memory.h>
 
 #include "img_defs.h"
 #include "servicesext.h"
@@ -1319,7 +1320,7 @@ static MRST_ERROR InitDev(MRSTLFB_DEVINFO *psDevInfo)
 	}
 	psbfb = to_psb_fb(psDrmFB);
 
-	psLINFBInfo = (struct fb_info*)psPsbFBDev->psb_fb_helper.fbdev;
+	psLINFBInfo = (struct fb_info*)psPsbFBDev->psb_fb_helper.info;
 
 #if defined(PVR_MRST_FB_SET_PAR_ON_INIT)
 	MRSTFBSetPar(psLINFBInfo);
@@ -1359,7 +1360,7 @@ static MRST_ERROR InitDev(MRSTLFB_DEVINFO *psDevInfo)
 
 	if (psDevInfo->pvRegs == NULL)
 	{
-		eError = PVRSRV_ERROR_BAD_MAPPING;
+		eError = (MRST_ERROR)PVRSRV_ERROR_BAD_MAPPING;
 		printk(KERN_WARNING DRIVER_PREFIX ": Couldn't map registers needed for flipping\n");
 		return eError;
 	}
@@ -1580,7 +1581,7 @@ int MRSTLFBAllocBuffer(struct drm_device *dev, IMG_UINT32 ui32Size, MRSTLFB_BUFF
 	IMG_UINT32 ulCounter;
 	int i, ret;
 
-	pvBuf = __vmalloc( ui32Size, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, __pgprot((pgprot_val(PAGE_KERNEL ) & ~_PAGE_CACHE_MASK) | _PAGE_CACHE_WC) );
+	pvBuf = __vmalloc( ui32Size, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO );
 	if( pvBuf == NULL )
 	{
 		return MRST_ERROR_OUT_OF_MEMORY;

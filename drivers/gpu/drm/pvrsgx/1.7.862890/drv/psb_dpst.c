@@ -19,6 +19,8 @@
  *
  */
 
+#include <drm/drm_print.h>
+#include <linux/irqreturn.h>
 #include "psb_umevents.h"
 #include "psb_dpst.h"
 /**

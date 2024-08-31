@@ -24,7 +24,11 @@
 #ifndef _SYSIRQ_H_
 #define _SYSIRQ_H_
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#endif
 
 bool sysirq_init(struct drm_device *dev);
 void sysirq_uninit(struct drm_device *dev);
@@ -32,7 +36,7 @@ void sysirq_uninit(struct drm_device *dev);
 void psb_irq_preinstall(struct drm_device *dev);
 int  psb_irq_postinstall(struct drm_device *dev);
 void psb_irq_uninstall(struct drm_device *dev);
-irqreturn_t psb_irq_handler(DRM_IRQ_ARGS);
+irqreturn_t psb_irq_handler(int irq, void *arg);
 
 void psb_irq_preinstall_islands(struct drm_device *dev, int hw_islands);
 int  psb_irq_postinstall_islands(struct drm_device *dev, int hw_islands);

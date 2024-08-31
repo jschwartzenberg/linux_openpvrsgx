@@ -31,7 +31,11 @@
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#endif
 
 #include <asm/io.h>
 
@@ -58,6 +62,7 @@
 
 #define unref__ __attribute__ ((unused))
 
+unsigned long MRSTLFBVSyncReadReg(MRSTLFB_DEVINFO * psDevinfo, unsigned long ulOffset);
 
 extern int fb_idx;
 
@@ -112,11 +117,11 @@ void MRSTLFBEnableVSyncInterrupt(MRSTLFB_DEVINFO * psDevinfo)
 void MRSTLFBDisableVSyncInterrupt(MRSTLFB_DEVINFO * psDevinfo)
 {
 #if defined(MRST_USING_INTERRUPTS)
-    struct drm_device * dev = psDevinfo->psDrmDevice;
+//    struct drm_device * dev = psDevinfo->psDrmDevice;
     struct drm_psb_private *dev_priv =
 	(struct drm_psb_private *) psDevinfo->psDrmDevice->dev_private;
     dev_priv->vblanksEnabledForFlips = false;
-    if (!dev->vblank_enabled[dev_priv->ui32MainPipe])
+//    if (!dev->vblank_enabled[dev_priv->ui32MainPipe])
 	psb_disable_vblank(psDevinfo->psDrmDevice, dev_priv->ui32MainPipe);
 #endif
 }

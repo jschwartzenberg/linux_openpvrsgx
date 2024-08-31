@@ -19,7 +19,13 @@
  *
  **************************************************************************/
 
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0))
 #include <drm/drmP.h>
+#else
+#include <drm/drm_file.h>
+#include <drm/drm_ioctl.h>
+#endif
 #include <drm/drm.h>
 #include "psb_drm.h"
 #include "psb_drv.h"
@@ -454,25 +460,25 @@ static void psb_do_takedown(struct drm_device *dev)
 {
 	struct drm_psb_private *dev_priv =
 	    (struct drm_psb_private *) dev->dev_private;
-	struct ttm_bo_device *bdev = &dev_priv->bdev;
+//	struct ttm_device *bdev = &dev_priv->bdev;
 
 
 	if (dev_priv->have_mem_mmu) {
-		ttm_bo_clean_mm(bdev, DRM_PSB_MEM_MMU);
+//		ttm_bo_clean_mm(bdev, DRM_PSB_MEM_MMU);
 		dev_priv->have_mem_mmu = 0;
 	}
 
 	if (dev_priv->have_tt) {
-		ttm_bo_clean_mm(bdev, TTM_PL_TT);
+//		ttm_bo_clean_mm(bdev, TTM_PL_TT);
 		dev_priv->have_tt = 0;
 	}
 
 	if (dev_priv->have_camera) {
-		ttm_bo_clean_mm(bdev, TTM_PL_CI);
+//		ttm_bo_clean_mm(bdev, TTM_PL_CI);
 		dev_priv->have_camera = 0;
 	}
 	if (dev_priv->have_rar) {
-		ttm_bo_clean_mm(bdev, TTM_PL_RAR);
+//		ttm_bo_clean_mm(bdev, TTM_PL_RAR);
 		dev_priv->have_rar = 0;
 	}
 
@@ -532,7 +538,7 @@ static int psb_do_init(struct drm_device *dev)
 {
 	struct drm_psb_private *dev_priv =
 	    (struct drm_psb_private *) dev->dev_private;
-	struct ttm_bo_device *bdev = &dev_priv->bdev;
+	struct ttm_device *bdev = &dev_priv->bdev;
 	struct psb_gtt *pg = dev_priv->pg;
 
 	uint32_t stolen_gtt;
@@ -563,7 +569,7 @@ static int psb_do_init(struct drm_device *dev)
 	dev_priv->gatt_free_offset = pg->mmu_gatt_start +
 				     (stolen_gtt << PAGE_SHIFT) * 1024;
 
-	if (1 || drm_debug) {
+	if (1) {
 		uint32_t core_id = PSB_RSGX32(PSB_CR_CORE_ID);
 		uint32_t core_rev = PSB_RSGX32(PSB_CR_CORE_REVISION);
 
@@ -611,7 +617,6 @@ static int psb_do_init(struct drm_device *dev)
 		dev_priv->sizes.mmu_size =
 			PSB_MEM_TT_START / (1024*1024);
 	}
-
 
 	PSB_DEBUG_INIT("Init MSVDX\n");
 	if (psb_msvdx_init(dev)) {
