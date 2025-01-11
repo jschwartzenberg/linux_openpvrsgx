@@ -54,6 +54,11 @@
 
 #include "bufferclass_video_linux.h"
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0))
+#else
+#include <drm/ttm/ttm_range_manager.h>
+#endif
+
 int drm_psb_debug = 0;
 static int drm_psb_trap_pagefaults;
 int drm_msvdx_pmpolicy = PSB_PMPOLICY_POWERDOWN;
@@ -594,14 +599,18 @@ static int psb_do_init(struct drm_device *dev)
 	tt_pages -= tt_start >> PAGE_SHIFT;
 	dev_priv->sizes.ta_mem_size = 0;
 
-
+/* https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/diff/?id=98399abd52b234b82457ef6c40c41543d806d3b7 */
 	/* TT region managed by TTM. */
-	if (!ttm_bo_init_mm(bdev, TTM_PL_TT,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0))
+	ret = ttm_bo_init_mm(bdev, TTM_PL_TT,
+#else
+	ret = ttm_range_man_init(bdev, TTM_PL_TT, false,
+#endif
 			pg->gatt_pages -
 			(pg->ci_start >> PAGE_SHIFT) -
 			((dev_priv->ci_region_size + dev_priv->rar_region_size)
-			 >> PAGE_SHIFT))) {
-
+			 >> PAGE_SHIFT));
+    if (!ret) {
 		dev_priv->have_tt = 1;
 		dev_priv->sizes.tt_size =
 			(tt_pages << PAGE_SHIFT) / (1024 * 1024) / 2;
@@ -610,9 +619,13 @@ static int psb_do_init(struct drm_device *dev)
 	DRM_DEBUG_KMS(" TT region size is %d\n",
 			pg->gatt_pages - (pg->ci_start >> PAGE_SHIFT) - ((dev_priv->ci_region_size +
 				dev_priv->rar_region_size) >> PAGE_SHIFT));
-	if (!ttm_bo_init_mm(bdev,
-			DRM_PSB_MEM_MMU,
-			PSB_MEM_TT_START >> PAGE_SHIFT)) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0))
+	ret = ttm_bo_init_mm(bdev, DRM_PSB_MEM_MMU,
+#else
+	ret = ttm_range_man_init(bdev, DRM_PSB_MEM_MMU, true,
+#endif
+			PSB_MEM_TT_START >> PAGE_SHIFT);
+	if (!ret) {
 		dev_priv->have_mem_mmu = 1;
 		dev_priv->sizes.mmu_size =
 			PSB_MEM_TT_START / (1024*1024);
@@ -683,13 +696,17 @@ static int psb_driver_unload(struct drm_device *dev)
 			dev_priv->scratch_page = NULL;
 		}
 		if (dev_priv->has_bo_device) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0))
 			ttm_bo_device_release(&dev_priv->bdev);
+#else
+			ttm_device_fini(&dev_priv->bdev);
+#endif
 			dev_priv->has_bo_device = 0;
 		}
-		if (dev_priv->has_fence_device) {
-			ttm_fence_device_release(&dev_priv->fdev);
-			dev_priv->has_fence_device = 0;
-		}
+		// if (dev_priv->has_fence_device) {
+		// 	ttm_fence_device_release(&dev_priv->fdev);
+		// 	dev_priv->has_fence_device = 0;
+		// }
 		if (dev_priv->vdc_reg) {
 			iounmap(dev_priv->vdc_reg);
 			dev_priv->vdc_reg = NULL;
@@ -704,8 +721,8 @@ static int psb_driver_unload(struct drm_device *dev)
 			dev_priv->msvdx_reg = NULL;
 		}
 
-		if (dev_priv->tdev)
-			ttm_object_device_release(&dev_priv->tdev);
+		// if (dev_priv->tdev)
+		// 	ttm_object_device_release(&dev_priv->tdev);
 
 		if (dev_priv->has_global)
 			psb_ttm_global_release(dev_priv);
@@ -725,7 +742,11 @@ static int psb_driver_unload(struct drm_device *dev)
 static int psb_driver_load(struct drm_device *dev, unsigned long chipset)
 {
 	struct drm_psb_private *dev_priv;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0))
 	struct ttm_bo_device *bdev;
+#else
+	struct ttm_device *bdev;
+#endif
 	unsigned long resource_start;
 	struct psb_gtt *pg;
 	unsigned long irqflags;

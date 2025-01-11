@@ -361,7 +361,7 @@ struct drm_psb_private {
 
 	struct drm_device *dev;
 	struct ttm_device bdev;
-//	struct ttm_object_device *tdev;
+	struct ttm_object_device *tdev;
 //	struct ttm_fence_device fdev;
 //	struct ttm_bo_device bdev;
 //	struct ttm_lock ttm_lock;

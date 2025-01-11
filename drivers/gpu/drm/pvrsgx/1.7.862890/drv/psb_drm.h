@@ -52,8 +52,13 @@
  * Public memory types.
  */
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0))
 #define DRM_PSB_MEM_MMU TTM_PL_PRIV1
 #define DRM_PSB_FLAG_MEM_MMU TTM_PL_FLAG_PRIV1
+#else
+#define DRM_PSB_MEM_MMU TTM_PL_PRIV + 1
+#define DRM_PSB_FLAG_MEM_MMU (1 << DRM_PSB_MEM_MMU)
+#endif
 
 #define TTM_PL_CI               TTM_PL_PRIV0
 #define TTM_PL_FLAG_CI          TTM_PL_FLAG_PRIV0       
